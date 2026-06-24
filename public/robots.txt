@@ -1,0 +1,9 @@
+# Robots.txt for Temporary Email Service
+# Optimized for SEO - allows search spiders to index high-value landing pages
+
+User-agent: *
+Allow: /
+Allow: /index.html
+
+# Sitemap location
+Sitemap: https://tempmail.domain.com/sitemap.xml

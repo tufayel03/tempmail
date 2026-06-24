@@ -1,0 +1,6 @@
+{
+  "name": "Temporary Email Service",
+  "description": "A fully functional, SEO-optimized, and mobile-responsive temporary email service with incoming webhook support, in-memory/MongoDB storage, and built-in AdSense slots.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
