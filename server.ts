@@ -40,7 +40,7 @@ app.use("/api/messages", apiLimiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Define Email interface for both MongoDB & in-memory store
+// Define interfaces for both MongoDB & in-memory store
 interface IEmail {
   to_address: string;
   from_address: string;
@@ -50,9 +50,126 @@ interface IEmail {
   created_at: Date;
 }
 
+interface IBlog {
+  _id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  coverImage: string;
+  createdAt: Date;
+}
+
+interface IDomain {
+  _id: string;
+  domain: string;
+  createdAt: Date;
+}
+
+interface IAd {
+  _id: string;
+  slot: string;
+  isActive: boolean;
+  title: string;
+  codeOrText: string;
+}
+
 // In-Memory Database fallback for AI Studio Preview
 class InMemoryDb {
   private emails: (IEmail & { _id: string })[] = [];
+  private domains: IDomain[] = [
+    { _id: "dom-1", domain: "tempmail.domain.com", createdAt: new Date() },
+    { _id: "dom-2", domain: "disposable.domain.com", createdAt: new Date() },
+    { _id: "dom-3", domain: "freemail.domain.com", createdAt: new Date() },
+    { _id: "dom-4", domain: "domain.com", createdAt: new Date() }
+  ];
+  private blogs: IBlog[] = [
+    {
+      _id: "blog-1",
+      title: "Protect Your Inbox: The Power of Disposable Email Addresses",
+      slug: "protect-your-inbox-disposable-email",
+      excerpt: "Learn how temporary mailboxes keep your personal information secure, stop spam, and shield you from marketing automation.",
+      content: `## Why Disposable Emails are Essential
+
+In today's hyper-connected digital world, every website, forum, and service asks for your email address. It starts innocently enough—a newsletter, a discount coupon, or a free ebook. But soon, your inbox is flooded with unsolicited newsletters, marketing offers, and potential phishing emails.
+
+This is where a **temporary, disposable email service** becomes your best friend.
+
+### What is a Disposable Email?
+A disposable email address is a fully functional email inbox created for a limited time. It can receive emails like standard inboxes but requires no sign-ups, passwords, or personal details.
+
+### Top Benefits
+1. **Zero Spam:** Stop marketing lists before they start.
+2. **Privacy Protection:** Avoid sharing your real address with unverified sites.
+3. **No Phishing Risk:** If a service gets breached, your main password and email stay completely safe.
+4. **Convenient Testing:** Perfect for developers and QA engineers who need to test account creations instantly.
+
+Use our service to keep your primary inbox pristine!`,
+      coverImage: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&h=450&q=80",
+      createdAt: new Date("2026-06-20T10:00:00Z")
+    },
+    {
+      _id: "blog-2",
+      title: "How Companies Track You via Email and How to Stop It",
+      slug: "stop-email-tracking-and-spy-pixels",
+      excerpt: "Invisible tracker pixels and link click mapping monitor your every move. Discover the tech behind email espionage and simple ways to block it.",
+      content: `## The Secret Tech in Your Inbox
+
+Did you know that up to **70% of marketing emails** contain invisible tracking mechanisms? When you open an email, the sender often knows exactly when you opened it, where you were, and what device you used.
+
+Let's demystify how this tracking works and how temporary email services help you break the cycle.
+
+### 1. The Not-So-Secret "Spy Pixel"
+A tracker pixel is a tiny, transparent 1px x 1px image embedded in an HTML email. When your email client renders the HTML, it requests the image from the tracker's server. That server logs your IP address, user-agent string, and timestamp.
+
+### 2. Custom Link Proxies
+Any link in a newsletter is wrapped in a custom redirect URL unique to you. When you click it, the marketer registers the action instantly before forwarding you to the destination.
+
+### Shielding Yourself
+* **Disable automatic image loading:** Turn off inline image rendering in your email settings.
+* **Use a VPN:** Mask your real physical location.
+* **Use Disposable Email Services:** By using a temporary address, any tracking profile is associated with a throwaway inbox that disappears shortly, rendering tracking profiles useless!`,
+      coverImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&h=450&q=80",
+      createdAt: new Date("2026-06-22T14:30:00Z")
+    }
+  ];
+  private ads: IAd[] = [
+    {
+      _id: "ad-1",
+      slot: "top_leaderboard",
+      isActive: true,
+      title: "Top Header Leaderboard (728x90)",
+      codeOrText: "[Google AdSense Slot 1 - Top Header Leaderboard (728x90 Desktop, 320x50 Mobile)]"
+    },
+    {
+      _id: "ad-2",
+      slot: "left_skyscraper",
+      isActive: true,
+      title: "Left Skyscraper (160x600)",
+      codeOrText: "[Google AdSense - Wide Skyscraper (160x600)]"
+    },
+    {
+      _id: "ad-3",
+      slot: "right_skyscraper",
+      isActive: true,
+      title: "Right Skyscraper (160x600)",
+      codeOrText: "[Google AdSense - Wide Skyscraper (160x600)]"
+    },
+    {
+      _id: "ad-4",
+      slot: "sidebar_left",
+      isActive: true,
+      title: "Sidebar Left (300x250)",
+      codeOrText: "[Google AdSense Leftbar Slot] - Medium Rectangle (300x250)"
+    },
+    {
+      _id: "ad-5",
+      slot: "sidebar_right",
+      isActive: true,
+      title: "Sidebar Right (Responsive)",
+      codeOrText: "[Google AdSense Rightbar Slot] - Horizontal Responsive Banner"
+    }
+  ];
 
   constructor() {
     // Run a periodic TTL cleanup every minute to delete emails older than 1 hour (3600s)
@@ -103,6 +220,86 @@ class InMemoryDb {
   getAll() {
     return this.emails;
   }
+
+  // Domain management in memory
+  getDomains() {
+    return this.domains;
+  }
+
+  addDomain(domainName: string) {
+    const normalized = domainName.toLowerCase().trim();
+    if (this.domains.some(d => d.domain === normalized)) return null;
+    const newDomain: IDomain = {
+      _id: Math.random().toString(36).substring(2, 11),
+      domain: normalized,
+      createdAt: new Date()
+    };
+    this.domains.push(newDomain);
+    return newDomain;
+  }
+
+  deleteDomain(domainName: string) {
+    const normalized = domainName.toLowerCase().trim();
+    const beforeCount = this.domains.length;
+    this.domains = this.domains.filter(d => d.domain !== normalized);
+    return beforeCount !== this.domains.length;
+  }
+
+  // Blog management in memory
+  getBlogs() {
+    return [...this.blogs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  getBlogBySlug(slug: string) {
+    return this.blogs.find(b => b.slug === slug) || null;
+  }
+
+  addBlog(title: string, content: string, excerpt: string, coverImage?: string) {
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+    
+    // Ensure slug is unique
+    let finalSlug = slug;
+    let index = 1;
+    while (this.blogs.some(b => b.slug === finalSlug)) {
+      finalSlug = `${slug}-${index++}`;
+    }
+
+    const newBlog: IBlog = {
+      _id: Math.random().toString(36).substring(2, 11),
+      title,
+      slug: finalSlug,
+      excerpt: excerpt || content.substring(0, 150) + "...",
+      content,
+      coverImage: coverImage || "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&h=450&q=80",
+      createdAt: new Date()
+    };
+    this.blogs.push(newBlog);
+    return newBlog;
+  }
+
+  deleteBlog(id: string) {
+    const beforeCount = this.blogs.length;
+    this.blogs = this.blogs.filter(b => b._id !== id);
+    return beforeCount !== this.blogs.length;
+  }
+
+  // Ads management in memory
+  getAds() {
+    return this.ads;
+  }
+
+  updateAd(slot: string, isActive: boolean, codeOrText: string) {
+    const ad = this.ads.find(a => a.slot === slot);
+    if (ad) {
+      ad.isActive = isActive;
+      ad.codeOrText = codeOrText;
+      return ad;
+    }
+    return null;
+  }
 }
 
 const memoryDb = new InMemoryDb();
@@ -110,6 +307,9 @@ const memoryDb = new InMemoryDb();
 // MongoDB Mongoose Connection
 let isMongoConnected = false;
 let EmailModel: mongoose.Model<any>;
+let BlogModel: mongoose.Model<any>;
+let DomainModel: mongoose.Model<any>;
+let AdModel: mongoose.Model<any>;
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -119,6 +319,111 @@ if (MONGODB_URI) {
     .then(() => {
       isMongoConnected = true;
       console.log("✅ MongoDB Connected successfully!");
+
+      // Seed default domains if empty
+      DomainModel.countDocuments().then(async (count) => {
+        if (count === 0) {
+          const defaults = ["tempmail.domain.com", "disposable.domain.com", "freemail.domain.com", "domain.com"];
+          await DomainModel.insertMany(defaults.map(d => ({ domain: d })));
+          console.log("Seeded default domains in MongoDB");
+        }
+      });
+
+      // Seed default blogs if empty
+      BlogModel.countDocuments().then(async (count) => {
+        if (count === 0) {
+          const defaultBlogs = [
+            {
+              title: "Protect Your Inbox: The Power of Disposable Email Addresses",
+              slug: "protect-your-inbox-disposable-email",
+              excerpt: "Learn how temporary mailboxes keep your personal information secure, stop spam, and shield you from marketing automation.",
+              content: `## Why Disposable Emails are Essential
+
+In today's hyper-connected digital world, every website, forum, and service asks for your email address. It starts innocently enough—a newsletter, a discount coupon, or a free ebook. But soon, your inbox is flooded with unsolicited newsletters, marketing offers, and potential phishing emails.
+
+This is where a **temporary, disposable email service** becomes your best friend.
+
+### What is a Disposable Email?
+A disposable email address is a fully functional email inbox created for a limited time. It can receive emails like standard inboxes but requires no sign-ups, passwords, or personal details.
+
+### Top Benefits
+1. **Zero Spam:** Stop marketing lists before they start.
+2. **Privacy Protection:** Avoid sharing your real address with unverified sites.
+3. **No Phishing Risk:** If a service gets breached, your main password and email stay completely safe.
+4. **Convenient Testing:** Perfect for developers and QA engineers who need to test account creations instantly.
+
+Use our service to keep your primary inbox pristine!`,
+              coverImage: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&h=450&q=80",
+              createdAt: new Date("2026-06-20T10:00:00Z")
+            },
+            {
+              title: "How Companies Track You via Email and How to Stop It",
+              slug: "stop-email-tracking-and-spy-pixels",
+              excerpt: "Invisible tracker pixels and link click mapping monitor your every move. Discover the tech behind email espionage and simple ways to block it.",
+              content: `## The Secret Tech in Your Inbox
+
+Did you know that up to **70% of marketing emails** contain invisible tracking mechanisms? When you open an email, the sender often knows exactly when you opened it, where you were, and what device you used.
+
+Let's demystify how this tracking works and how temporary email services help you break the cycle.
+
+### 1. The Not-So-Secret "Spy Pixel"
+A tracker pixel is a tiny, transparent 1px x 1px image embedded in an HTML email. When your email client renders the HTML, it requests the image from the tracker's server. That server logs your IP address, user-agent string, and timestamp.
+
+### 2. Custom Link Proxies
+Any link in a newsletter is wrapped in a custom redirect URL unique to you. When you click it, the marketer registers the action instantly before forwarding you to the destination.
+
+### Shielding Yourself
+* **Disable automatic image loading:** Turn off inline image rendering in your email settings.
+* **Use a VPN:** Mask your real physical location.
+* **Use Disposable Email Services:** By using a temporary address, any tracking profile is associated with a throwaway inbox that disappears shortly, rendering tracking profiles useless!`,
+              coverImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&h=450&q=80",
+              createdAt: new Date("2026-06-22T14:30:00Z")
+            }
+          ];
+          await BlogModel.insertMany(defaultBlogs);
+          console.log("Seeded default blogs in MongoDB");
+        }
+      });
+
+      // Seed default ads if empty
+      AdModel.countDocuments().then(async (count) => {
+        if (count === 0) {
+          const defaultAds = [
+            {
+              slot: "top_leaderboard",
+              isActive: true,
+              title: "Top Header Leaderboard (728x90)",
+              codeOrText: "[Google AdSense Slot 1 - Top Header Leaderboard (728x90 Desktop, 320x50 Mobile)]"
+            },
+            {
+              slot: "left_skyscraper",
+              isActive: true,
+              title: "Left Skyscraper (160x600)",
+              codeOrText: "[Google AdSense - Wide Skyscraper (160x600)]"
+            },
+            {
+              slot: "right_skyscraper",
+              isActive: true,
+              title: "Right Skyscraper (160x600)",
+              codeOrText: "[Google AdSense - Wide Skyscraper (160x600)]"
+            },
+            {
+              slot: "sidebar_left",
+              isActive: true,
+              title: "Sidebar Left (300x250)",
+              codeOrText: "[Google AdSense Leftbar Slot] - Medium Rectangle (300x250)"
+            },
+            {
+              slot: "sidebar_right",
+              isActive: true,
+              title: "Sidebar Right (Responsive)",
+              codeOrText: "[Google AdSense Rightbar Slot] - Horizontal Responsive Banner"
+            }
+          ];
+          await AdModel.insertMany(defaultAds);
+          console.log("Seeded default ads in MongoDB");
+        }
+      });
     })
     .catch((err) => {
       console.error("❌ MongoDB connection error:", err.message);
@@ -139,9 +444,38 @@ if (MONGODB_URI) {
   emailSchema.index({ to_address: 1 });
 
   EmailModel = mongoose.models.Email || mongoose.model("Email", emailSchema);
+
+  // Blog Schema
+  const blogSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    slug: { type: String, required: true, unique: true },
+    excerpt: { type: String, required: true },
+    content: { type: String, required: true },
+    coverImage: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now }
+  });
+  BlogModel = mongoose.models.Blog || mongoose.model("Blog", blogSchema);
+
+  // Domain Schema
+  const domainSchema = new mongoose.Schema({
+    domain: { type: String, required: true, unique: true },
+    createdAt: { type: Date, default: Date.now }
+  });
+  DomainModel = mongoose.models.Domain || mongoose.model("Domain", domainSchema);
+
+  // Ads Schema
+  const adSchema = new mongoose.Schema({
+    slot: { type: String, required: true, unique: true },
+    isActive: { type: Boolean, default: true },
+    title: { type: String, required: true },
+    codeOrText: { type: String, default: "" }
+  });
+  AdModel = mongoose.models.Ad || mongoose.model("Ad", adSchema);
+
 } else {
   console.log("ℹ️ No MONGODB_URI environment variable set. Database is running in Local In-Memory Fallback mode for AI Studio Preview.");
 }
+
 
 // REST API Endpoints
 
@@ -405,6 +739,217 @@ app.post("/api/generate-mock-email", async (req, res) => {
   } catch (error: any) {
     console.error("Error creating mock email:", error);
     return res.status(500).json({ error: "Internal Server Error", details: error.message });
+  }
+});
+
+// ADMIN CONFIGURABLE ENDPOINTS
+
+// Simple Authentication Middleware for Admin Panel
+function checkAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const adminPassword = req.headers["x-admin-password"];
+  const expectedPassword = process.env.ADMIN_PASSWORD || "admin123";
+  if (!adminPassword || adminPassword !== expectedPassword) {
+    return res.status(401).json({ error: "Unauthorized. Invalid admin password." });
+  }
+  next();
+}
+
+// Admin Password Verification Endpoint
+app.post("/api/admin/verify", (req, res) => {
+  const { password } = req.body;
+  const expectedPassword = process.env.ADMIN_PASSWORD || "admin123";
+  if (password === expectedPassword) {
+    return res.json({ success: true });
+  }
+  return res.status(401).json({ success: false, error: "Invalid password" });
+});
+
+// Blog Endpoints
+app.get("/api/blogs", async (req, res) => {
+  try {
+    if (isMongoConnected && BlogModel) {
+      const blogs = await BlogModel.find().sort({ createdAt: -1 }).exec();
+      return res.json({ success: true, blogs });
+    } else {
+      const blogs = memoryDb.getBlogs();
+      return res.json({ success: true, blogs });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/blogs/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    if (isMongoConnected && BlogModel) {
+      const blog = await BlogModel.findOne({ slug }).exec();
+      if (!blog) return res.status(404).json({ error: "Blog post not found" });
+      return res.json({ success: true, blog });
+    } else {
+      const blog = memoryDb.getBlogBySlug(slug);
+      if (!blog) return res.status(404).json({ error: "Blog post not found" });
+      return res.json({ success: true, blog });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/blogs", checkAdminAuth, async (req, res) => {
+  try {
+    const { title, content, excerpt, coverImage } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ error: "Title and Content are required." });
+    }
+    
+    if (isMongoConnected && BlogModel) {
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)+/g, "");
+      
+      let finalSlug = slug;
+      let index = 1;
+      while (await BlogModel.findOne({ slug: finalSlug })) {
+        finalSlug = `${slug}-${index++}`;
+      }
+
+      const newBlog = new BlogModel({
+        title,
+        slug: finalSlug,
+        excerpt: excerpt || content.substring(0, 150) + "...",
+        content,
+        coverImage: coverImage || "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&h=450&q=80",
+        createdAt: new Date()
+      });
+      await newBlog.save();
+      return res.status(201).json({ success: true, blog: newBlog });
+    } else {
+      const blog = memoryDb.addBlog(title, content, excerpt, coverImage);
+      return res.status(201).json({ success: true, blog });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/blogs/:id", checkAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isMongoConnected && BlogModel) {
+      const result = await BlogModel.deleteOne({ _id: id });
+      if (result.deletedCount > 0) {
+        return res.json({ success: true, message: "Blog post deleted successfully." });
+      }
+      return res.status(404).json({ error: "Blog post not found." });
+    } else {
+      const deleted = memoryDb.deleteBlog(id);
+      if (deleted) {
+        return res.json({ success: true, message: "Blog post deleted successfully." });
+      }
+      return res.status(404).json({ error: "Blog post not found." });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Domain Endpoints
+app.get("/api/domains", async (req, res) => {
+  try {
+    if (isMongoConnected && DomainModel) {
+      const domainsList = await DomainModel.find().exec();
+      return res.json({ success: true, domains: domainsList });
+    } else {
+      const domainsList = memoryDb.getDomains();
+      return res.json({ success: true, domains: domainsList });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/domains", checkAdminAuth, async (req, res) => {
+  try {
+    const { domain } = req.body;
+    if (!domain) return res.status(400).json({ error: "Domain name is required" });
+    const normalized = domain.toLowerCase().trim();
+
+    if (isMongoConnected && DomainModel) {
+      const exists = await DomainModel.findOne({ domain: normalized }).exec();
+      if (exists) return res.status(400).json({ error: "Domain already exists" });
+
+      const newDomain = new DomainModel({ domain: normalized, createdAt: new Date() });
+      await newDomain.save();
+      return res.status(201).json({ success: true, domain: newDomain });
+    } else {
+      const added = memoryDb.addDomain(normalized);
+      if (!added) return res.status(400).json({ error: "Domain already exists" });
+      return res.status(201).json({ success: true, domain: added });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/domains/:domain", checkAdminAuth, async (req, res) => {
+  try {
+    const { domain } = req.params;
+    const normalized = domain.toLowerCase().trim();
+
+    if (isMongoConnected && DomainModel) {
+      const result = await DomainModel.deleteOne({ domain: normalized });
+      if (result.deletedCount > 0) {
+        return res.json({ success: true, message: "Domain deleted successfully." });
+      }
+      return res.status(404).json({ error: "Domain not found." });
+    } else {
+      const deleted = memoryDb.deleteDomain(normalized);
+      if (deleted) {
+        return res.json({ success: true, message: "Domain deleted successfully." });
+      }
+      return res.status(404).json({ error: "Domain not found." });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Ads Endpoints
+app.get("/api/ads", async (req, res) => {
+  try {
+    if (isMongoConnected && AdModel) {
+      const adsList = await AdModel.find().exec();
+      return res.json({ success: true, ads: adsList });
+    } else {
+      const adsList = memoryDb.getAds();
+      return res.json({ success: true, ads: adsList });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/ads", checkAdminAuth, async (req, res) => {
+  try {
+    const { slot, isActive, codeOrText } = req.body;
+    if (!slot) return res.status(400).json({ error: "Slot identifier is required" });
+
+    if (isMongoConnected && AdModel) {
+      const updated = await AdModel.findOneAndUpdate(
+        { slot },
+        { isActive, codeOrText },
+        { new: true, upsert: true }
+      ).exec();
+      return res.json({ success: true, ad: updated });
+    } else {
+      const updated = memoryDb.updateAd(slot, isActive, codeOrText);
+      if (!updated) return res.status(404).json({ error: "Slot not found" });
+      return res.json({ success: true, ad: updated });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

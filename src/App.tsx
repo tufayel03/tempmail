@@ -14,6 +14,7 @@ import {
   FileText, 
   Plus, 
   Settings, 
+  BookOpen,
   HelpCircle, 
   Send, 
   Sparkles, 
@@ -37,6 +38,29 @@ interface EmailMessage {
 }
 
 export default function App() {
+  // Pages & Navigation Tab Mode
+  const [currentTab, setCurrentTab] = useState<"mail" | "blog" | "admin">("mail");
+  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(null);
+
+  // Dynamic Data
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [ads, setAds] = useState<any[]>([]);
+  
+  // Admin Panel Auth & Sub-tabs
+  const [adminPassword, setAdminPassword] = useState("");
+  const [isAdminVerified, setIsAdminVerified] = useState(false);
+  const [adminTab, setAdminTab] = useState<"blogs" | "domains" | "ads">("blogs");
+
+  // Create Blog state
+  const [newBlogTitle, setNewBlogTitle] = useState("");
+  const [newBlogCover, setNewBlogCover] = useState("");
+  const [newBlogExcerpt, setNewBlogExcerpt] = useState("");
+  const [newBlogContent, setNewBlogContent] = useState("");
+
+  // Create Domain state
+  const [newDomainName, setNewDomainName] = useState("");
+
   // Domain & Address Configuration
   const [domain, setDomain] = useState("tempmail.domain.com");
   const [prefix, setPrefix] = useState(() => {
@@ -97,6 +121,206 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Fetch blogs from API
+  const fetchBlogs = async () => {
+    try {
+      const response = await fetch("/api/blogs");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setBlogs(data.blogs || []);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching blogs:", err);
+    }
+  };
+
+  // Fetch custom domains from API
+  const fetchDomains = async () => {
+    try {
+      const response = await fetch("/api/domains");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setDomains(data.domains || []);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching domains:", err);
+    }
+  };
+
+  // Fetch Ads configurations
+  const fetchAds = async () => {
+    try {
+      const response = await fetch("/api/ads");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setAds(data.ads || []);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching ads:", err);
+    }
+  };
+
+  // Verify Admin password
+  const handleVerifyAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("/api/admin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: adminPassword })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setIsAdminVerified(true);
+        showToast("Access granted. Welcome to the Admin Panel!");
+      } else {
+        showToast("Error: " + (data.error || "Invalid Password"));
+      }
+    } catch (err) {
+      showToast("Verification failed. Check server console.");
+    }
+  };
+
+  // Create Blog action
+  const handleCreateBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBlogTitle || !newBlogContent) {
+      showToast("Title and Content are required.");
+      return;
+    }
+    try {
+      const response = await fetch("/api/blogs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword
+        },
+        body: JSON.stringify({
+          title: newBlogTitle,
+          coverImage: newBlogCover,
+          excerpt: newBlogExcerpt,
+          content: newBlogContent
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast("Blog post published successfully!");
+        setNewBlogTitle("");
+        setNewBlogCover("");
+        setNewBlogExcerpt("");
+        setNewBlogContent("");
+        fetchBlogs();
+      } else {
+        showToast("Failed to create blog: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      showToast("Error publishing blog.");
+    }
+  };
+
+  // Delete Blog action
+  const handleDeleteBlog = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this blog post?")) return;
+    try {
+      const response = await fetch(`/api/blogs/${id}`, {
+        method: "DELETE",
+        headers: {
+          "x-admin-password": adminPassword
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast("Blog post deleted.");
+        fetchBlogs();
+      } else {
+        showToast("Failed to delete: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      showToast("Error deleting blog.");
+    }
+  };
+
+  // Create Domain action
+  const handleCreateDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanDomain = newDomainName.trim().toLowerCase();
+    if (!cleanDomain) {
+      showToast("Domain name cannot be empty.");
+      return;
+    }
+    try {
+      const response = await fetch("/api/domains", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword
+        },
+        body: JSON.stringify({ domain: cleanDomain })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast(`Domain ${cleanDomain} added successfully!`);
+        setNewDomainName("");
+        fetchDomains();
+      } else {
+        showToast("Failed: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      showToast("Error adding domain.");
+    }
+  };
+
+  // Delete Domain action
+  const handleDeleteDomain = async (domainName: string) => {
+    if (!window.confirm(`Are you sure you want to delete domain @${domainName}?`)) return;
+    try {
+      const response = await fetch(`/api/domains/${encodeURIComponent(domainName)}`, {
+        method: "DELETE",
+        headers: {
+          "x-admin-password": adminPassword
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast("Domain deleted.");
+        fetchDomains();
+      } else {
+        showToast("Failed: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      showToast("Error deleting domain.");
+    }
+  };
+
+  // Save Ad Configuration
+  const handleSaveAd = async (slot: string, isActive: boolean, codeOrText: string) => {
+    try {
+      const response = await fetch("/api/ads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword
+        },
+        body: JSON.stringify({ slot, isActive, codeOrText })
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast("Ad setting updated successfully!");
+        fetchAds();
+      } else {
+        showToast("Failed to save: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      showToast("Error updating ad slot.");
+    }
   };
 
   // Fetch messages from Express backend
@@ -246,6 +470,22 @@ export default function App() {
     setCountdown(10);
   }, [emailAddress]);
 
+  // Load custom domains, blogs, and ads configurations once on mount
+  useEffect(() => {
+    fetchDomains();
+    fetchBlogs();
+    fetchAds();
+  }, []);
+
+  // Update default domain name once custom domains are fetched
+  useEffect(() => {
+    if (domains.length > 0) {
+      const defaultDom = domains[0].domain;
+      setDomain(defaultDom);
+      setDomainInput(defaultDom);
+    }
+  }, [domains]);
+
   // Formats UTC date string into clean human-readable text
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -294,73 +534,121 @@ export default function App() {
 
       {/* Header Navigation */}
       <header className="border-b border-slate-800 bg-[#0f1524]/80 backdrop-blur-md sticky top-0 z-30" id="app-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600/20 p-2.5 rounded-xl border border-indigo-500/30">
-              <Mail className="w-6 h-6 text-indigo-400" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+            <div className="bg-indigo-600/20 p-2 rounded-lg border border-indigo-500/30 hidden xs:block flex-shrink-0">
+              <Mail className="w-5 h-5 text-indigo-400" />
             </div>
-            <div>
-              <span className="font-display font-bold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
+            <div className="flex-shrink-0">
+              <span className="font-display font-bold text-base sm:text-lg tracking-tight text-white flex items-center gap-1.5">
                 Temp<span className="text-indigo-400 font-extrabold">Mail</span>
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  v1.0
-                </span>
               </span>
             </div>
+            
+            {/* Dynamic Navigation Tabs */}
+            <nav className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 p-0.5 sm:p-1 rounded-lg ml-1 sm:ml-4">
+              <button
+                onClick={() => { setCurrentTab("mail"); setSelectedBlogSlug(null); }}
+                className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all ${
+                  currentTab === "mail" 
+                    ? "bg-indigo-600 text-white shadow" 
+                    : "text-slate-400 hover:text-white"
+                }`}
+                id="tab-mail"
+              >
+                <Mail className="w-3 h-3" />
+                <span>Mail</span>
+              </button>
+              <button
+                onClick={() => { setCurrentTab("blog"); setSelectedBlogSlug(null); }}
+                className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all ${
+                  currentTab === "blog" 
+                    ? "bg-indigo-600 text-white shadow" 
+                    : "text-slate-400 hover:text-white"
+                }`}
+                id="tab-blog"
+              >
+                <BookOpen className="w-3 h-3" />
+                <span>Blog</span>
+              </button>
+              <button
+                onClick={() => { setCurrentTab("admin"); }}
+                className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all ${
+                  currentTab === "admin" 
+                    ? "bg-indigo-600 text-white shadow" 
+                    : "text-slate-400 hover:text-white"
+                }`}
+                id="tab-admin"
+              >
+                <Settings className="w-3 h-3" />
+                <span>Admin</span>
+              </button>
+            </nav>
           </div>
 
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setShowSimulateModal(true)}
-              className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg transition-all shadow-lg shadow-emerald-950/20 whitespace-nowrap"
+              className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition-all"
               title="Simulate incoming emails directly inside this sandbox"
               id="btn-simulate-modal"
             >
-              <Send className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline">Simulate Incoming Email</span>
-              <span className="sm:hidden">Simulate</span>
+              <Send className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+              <span>Simulate Mail</span>
             </button>
-            <span className="text-[10px] sm:text-xs text-slate-500 font-mono hidden md:inline-block px-2 py-1 rounded bg-slate-900 border border-slate-800">
-              DB: {dbMode === "mongodb" ? "🟢 MongoDB" : "💾 In-Memory (Preview Mode)"}
+            <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono hidden md:inline-block px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">
+              DB: {dbMode === "mongodb" ? "🟢 Mongo" : "💾 Memory"}
             </span>
           </div>
         </div>
       </header>
 
       {/* TOP HEADER AD PLACEHOLDER (AdSense 728x90 Leaderboard / 320x50 Mobile) */}
-      <div className="max-w-[960px] mx-auto w-full px-4 sm:px-6 mt-6" id="top-ad-wrapper">
-        <div className="bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden min-h-[50px] md:min-h-[90px] w-full p-2">
-          <span className="absolute top-1 left-2 text-[8px] font-bold tracking-widest text-slate-600 uppercase">Sponsored Advertisement</span>
-          <div className="w-full h-[50px] md:h-[90px] flex items-center justify-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg bg-slate-950/40">
-            <span className="font-mono text-[10px] md:text-xs">
-              [Google AdSense Slot 1 - Top Header Leaderboard (728x90 Desktop, 320x50 Mobile)]
-            </span>
+      {(() => {
+        const topAd = ads.find(a => a.slot === "top_leaderboard");
+        if (topAd && !topAd.isActive) return null;
+        return (
+          <div className="max-w-[960px] mx-auto w-full px-4 sm:px-6 mt-6" id="top-ad-wrapper">
+            <div className="bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden min-h-[50px] md:min-h-[90px] w-full p-2">
+              <span className="absolute top-1 left-2 text-[8px] font-bold tracking-widest text-slate-600 uppercase">Sponsored Advertisement</span>
+              <div className="w-full h-[50px] md:h-[90px] flex items-center justify-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg bg-slate-950/40">
+                <span className="font-mono text-[10px] md:text-xs text-center px-4">
+                  {topAd?.codeOrText || "[Google AdSense Slot 1 - Top Header Leaderboard (728x90 Desktop, 320x50 Mobile)]"}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Main Layout Container with Sidebar Skyscrapers */}
       <div className="max-w-[1550px] mx-auto w-full px-2.5 sm:px-4 md:px-6 py-4 sm:py-6 flex-grow flex flex-row items-start justify-center gap-3 sm:gap-6" id="app-layout-wrapper">
         
         {/* LEFT SKYSCRAPER AD ZONE (Red High-CTR Ad Placement) */}
-        <aside className="hidden xl:flex flex-col gap-4 w-[160px] flex-shrink-0 sticky top-24" id="left-skyscraper-ad">
-          <div className="bg-red-600/10 rounded-2xl border border-red-500/40 p-4 flex flex-col items-center justify-center min-h-[600px] relative overflow-hidden shadow-lg shadow-red-950/10">
-            <span className="absolute top-2 left-2 text-[8px] font-bold tracking-widest text-red-400 uppercase">Sponsored Ad</span>
-            <div className="w-full h-[560px] flex flex-col items-center justify-center text-xs text-red-400 border border-dashed border-red-500/25 rounded-lg bg-red-950/40 p-2 text-center gap-4">
-              <span className="font-mono text-[10px] leading-relaxed">
-                [Google AdSense]<br/>
-                <strong className="text-red-400 font-bold uppercase tracking-wider text-[11px]">Wide Skyscraper<br/>(160x600)</strong><br/>
-                High Conversion Zone
-              </span>
-              <div className="w-8 h-8 rounded-full border border-red-500/30 flex items-center justify-center text-red-400 text-xs font-bold animate-pulse">Ad</div>
-            </div>
-          </div>
-        </aside>
+        {(() => {
+          const leftAd = ads.find(a => a.slot === "left_skyscraper");
+          if (leftAd && !leftAd.isActive) return null;
+          return (
+            <aside className="hidden xl:flex flex-col gap-4 w-[160px] flex-shrink-0 sticky top-24" id="left-skyscraper-ad">
+              <div className="bg-red-600/10 rounded-2xl border border-red-500/40 p-4 flex flex-col items-center justify-center min-h-[600px] relative overflow-hidden shadow-lg shadow-red-950/10">
+                <span className="absolute top-2 left-2 text-[8px] font-bold tracking-widest text-red-400 uppercase">Sponsored Ad</span>
+                <div className="w-full h-[560px] flex flex-col items-center justify-center text-xs text-red-400 border border-dashed border-red-500/25 rounded-lg bg-red-950/40 p-2 text-center gap-4">
+                  <span className="font-mono text-[10px] leading-relaxed">
+                    {leftAd?.codeOrText || "[Google AdSense - Wide Skyscraper (160x600)]"}
+                  </span>
+                  <div className="w-8 h-8 rounded-full border border-red-500/30 flex items-center justify-center text-red-400 text-xs font-bold animate-pulse">Ad</div>
+                </div>
+              </div>
+            </aside>
+          );
+        })()}
 
         {/* CENTER MAIN COLUMN */}
         <main className="flex-grow max-w-[960px] w-full flex flex-col gap-6 overflow-hidden" id="app-main-content">
           
-          {/* Email Generator Area */}
+          {currentTab === "mail" && (
+            <>
+              {/* Email Generator Area */}
           <section className="bg-gradient-to-br from-[#121829] to-[#0d1222] rounded-2xl border border-slate-800 p-3 sm:p-5 shadow-xl relative overflow-hidden" id="email-generator">
             <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
             
@@ -449,10 +737,20 @@ export default function App() {
                     className="bg-slate-950 border border-slate-800 rounded px-1 py-0.5 text-[11px] sm:text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer max-w-[100px] sm:max-w-none"
                     id="select-custom-domain"
                   >
-                    <option value="tempmail.domain.com">@tempmail...</option>
-                    <option value="disposable.domain.com">@dispos...</option>
-                    <option value="freemail.domain.com">@freem...</option>
-                    <option value="domain.com">@domain.com</option>
+                    {domains.length === 0 ? (
+                      <>
+                        <option value="tempmail.domain.com">@tempmail...</option>
+                        <option value="disposable.domain.com">@dispos...</option>
+                        <option value="freemail.domain.com">@freem...</option>
+                        <option value="domain.com">@domain.com</option>
+                      </>
+                    ) : (
+                      domains.map((dom) => (
+                        <option key={dom._id || dom.domain} value={dom.domain}>
+                          @{dom.domain.length > 15 ? dom.domain.substring(0, 12) + "..." : dom.domain}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <button
                     type="submit"
@@ -832,34 +1130,469 @@ export default function App() {
           </div>
         </section>
 
-        {/* BOTTOM FOOTER AD PLACEHOLDER (AdSense 728x90 Leaderboard / 320x50 Mobile) */}
-        <div className="w-full mt-2" id="bottom-ad-wrapper">
-          <div className="bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden min-h-[50px] md:min-h-[90px] w-full p-2">
-            <span className="absolute top-1 left-2 text-[8px] font-bold tracking-widest text-slate-600 uppercase">Sponsored Advertisement</span>
-            <div className="w-full h-[50px] md:h-[90px] flex items-center justify-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg bg-slate-950/40">
-              <span className="font-mono text-[10px] md:text-xs">
-                [Google AdSense Slot 3 - Bottom Footer Leaderboard (728x90 Desktop, 320x50 Mobile)]
-              </span>
+              {/* BOTTOM FOOTER AD PLACEHOLDER (AdSense 728x90 Leaderboard / 320x50 Mobile) */}
+              {(() => {
+                const bottomAd = ads.find(a => a.slot === "sidebar_right");
+                if (bottomAd && !bottomAd.isActive) return null;
+                return (
+                  <div className="w-full mt-2" id="bottom-ad-wrapper">
+                    <div className="bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden min-h-[50px] md:min-h-[90px] w-full p-2">
+                      <span className="absolute top-1 left-2 text-[8px] font-bold tracking-widest text-slate-600 uppercase">Sponsored Advertisement</span>
+                      <div className="w-full h-[50px] md:h-[90px] flex items-center justify-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg bg-slate-950/40">
+                        <span className="font-mono text-[10px] md:text-xs text-center px-4">
+                          {bottomAd?.codeOrText || "[Google AdSense Slot 3 - Bottom Footer Leaderboard (728x90 Desktop, 320x50 Mobile)]"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          {currentTab === "blog" && (
+            <div className="flex flex-col gap-6" id="blog-posts-view">
+              {!selectedBlogSlug ? (
+                // Blogs List View
+                <div className="bg-[#101625] rounded-2xl border border-slate-800 p-4 sm:p-6 flex flex-col gap-6">
+                  <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                        <BookOpen className="w-6 h-6 text-indigo-400" />
+                        <span>Security & Privacy Blog</span>
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Learn about email privacy, cybersecurity best practices, and temporary mail hosting.
+                      </p>
+                    </div>
+                  </div>
+
+                  {blogs.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500">
+                      <BookOpen className="w-12 h-12 mx-auto text-slate-600 mb-2" />
+                      <p className="text-sm">No blog posts found.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {blogs.map((blog) => (
+                        <div key={blog._id} className="bg-slate-900/60 rounded-xl border border-slate-800/80 overflow-hidden flex flex-col h-full hover:border-slate-700 transition-all group">
+                          {blog.coverImage && (
+                            <div className="relative h-44 overflow-hidden bg-slate-950">
+                              <img 
+                                src={blog.coverImage} 
+                                alt={blog.title} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                          )}
+                          <div className="p-4 flex flex-col flex-grow gap-2">
+                            <span className="text-[10px] font-mono text-indigo-400">
+                              {new Date(blog.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                            <h3 className="font-display font-bold text-white text-base group-hover:text-indigo-400 transition-colors line-clamp-2">
+                              {blog.title}
+                            </h3>
+                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed flex-grow">
+                              {blog.excerpt}
+                            </p>
+                            <button
+                              onClick={() => setSelectedBlogSlug(blog.slug)}
+                              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2 self-start cursor-pointer group-hover:underline"
+                            >
+                              <span>Read Post</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Single Blog Post Reader View
+                (() => {
+                  const blog = blogs.find(b => b.slug === selectedBlogSlug);
+                  if (!blog) {
+                    return (
+                      <div className="bg-[#101625] rounded-2xl border border-slate-800 p-8 text-center text-slate-500">
+                        <p>Blog post not found or loading...</p>
+                        <button onClick={() => setSelectedBlogSlug(null)} className="text-xs text-indigo-400 underline mt-2">Go back</button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <article className="bg-[#101625] rounded-2xl border border-slate-800 overflow-hidden shadow-xl" id="blog-post-content">
+                      {blog.coverImage && (
+                        <div className="relative h-64 sm:h-80 w-full bg-slate-950">
+                          <img 
+                            src={blog.coverImage} 
+                            alt={blog.title} 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#101625] via-transparent to-transparent"></div>
+                          <button
+                            onClick={() => setSelectedBlogSlug(null)}
+                            className="absolute top-4 left-4 bg-slate-950/80 hover:bg-slate-950 text-white border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur"
+                          >
+                            <span>← Back to blogs</span>
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div className="p-6 sm:p-8 flex flex-col gap-4">
+                        {!blog.coverImage && (
+                          <button
+                            onClick={() => setSelectedBlogSlug(null)}
+                            className="bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer self-start mb-2"
+                          >
+                            <span>← Back to blogs</span>
+                          </button>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                          <span>Published on</span>
+                          <span className="text-indigo-400">
+                            {new Date(blog.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                          </span>
+                        </div>
+                        
+                        <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-white tracking-tight leading-tight">
+                          {blog.title}
+                        </h1>
+
+                        <div className="text-slate-300 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-wrap border-t border-slate-800/80 pt-6 mt-2 select-text">
+                          {blog.content}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })()
+              )}
             </div>
-          </div>
-        </div>
+          )}
+
+          {currentTab === "admin" && (
+            <div className="bg-[#101625] rounded-2xl border border-slate-800 p-4 sm:p-6 flex flex-col gap-6" id="admin-panel-view">
+              <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                    <Settings className="w-5.5 h-5.5 text-indigo-400" />
+                    <span>Server Administrative Panel</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Manage available email domains, publish blog posts, and configure active ad placements.
+                  </p>
+                </div>
+                {isAdminVerified && (
+                  <button
+                    onClick={() => { setIsAdminVerified(false); setAdminPassword(""); }}
+                    className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer underline"
+                  >
+                    Lock Session
+                  </button>
+                )}
+              </div>
+
+              {!isAdminVerified ? (
+                // Authentication Form
+                <div className="max-w-md mx-auto w-full py-8 flex flex-col gap-4" id="admin-auth-section">
+                  <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-5 flex flex-col gap-4">
+                    <div className="flex items-center gap-2.5 justify-center mb-1 text-center">
+                      <Lock className="w-5 h-5 text-indigo-400" />
+                      <span className="font-semibold text-white">Enter Administrator Password</span>
+                    </div>
+                    
+                    <form onSubmit={handleVerifyAdmin} className="flex flex-col gap-3">
+                      <input
+                        type="password"
+                        placeholder="Admin Password (default: admin123)"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-center"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2.5 text-xs font-semibold shadow transition-all cursor-pointer"
+                      >
+                        Unlock Panel
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ) : (
+                // Verified Admin Console
+                <div className="flex flex-col gap-6" id="admin-console-section">
+                  {/* Admin Tab Selector */}
+                  <div className="flex items-center gap-1 border-b border-slate-800 pb-0.5">
+                    <button
+                      onClick={() => setAdminTab("blogs")}
+                      className={`px-3 sm:px-4 py-2 text-xs font-semibold border-b-2 transition-all ${
+                        adminTab === "blogs"
+                          ? "border-indigo-500 text-white bg-indigo-500/5"
+                          : "border-transparent text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Blogging Engine
+                    </button>
+                    <button
+                      onClick={() => setAdminTab("domains")}
+                      className={`px-3 sm:px-4 py-2 text-xs font-semibold border-b-2 transition-all ${
+                        adminTab === "domains"
+                          ? "border-indigo-500 text-white bg-indigo-500/5"
+                          : "border-transparent text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Domain Routing
+                    </button>
+                    <button
+                      onClick={() => setAdminTab("ads")}
+                      className={`px-3 sm:px-4 py-2 text-xs font-semibold border-b-2 transition-all ${
+                        adminTab === "ads"
+                          ? "border-indigo-500 text-white bg-indigo-500/5"
+                          : "border-transparent text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Ads Manager
+                    </button>
+                  </div>
+
+                  {/* 1. Manage Blogs Sub-tab */}
+                  {adminTab === "blogs" && (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      {/* Create Blog Form */}
+                      <form onSubmit={handleCreateBlog} className="lg:col-span-7 bg-slate-900/40 border border-slate-800 p-4 rounded-xl flex flex-col gap-4">
+                        <h3 className="font-semibold text-white text-xs uppercase tracking-wider text-indigo-400">Publish New Blog Post</h3>
+                        
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Blog Title:</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. 5 Ways to Spot a Phishing Attack"
+                            value={newBlogTitle}
+                            onChange={(e) => setNewBlogTitle(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Cover Image URL (Optional):</label>
+                          <input
+                            type="text"
+                            placeholder="https://images.unsplash.com/photo-..."
+                            value={newBlogCover}
+                            onChange={(e) => setNewBlogCover(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Short Excerpt:</label>
+                          <input
+                            type="text"
+                            placeholder="Brief 1-2 sentence description..."
+                            value={newBlogExcerpt}
+                            onChange={(e) => setNewBlogExcerpt(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Article Content (Plain text / Markdown style):</label>
+                          <textarea
+                            required
+                            placeholder="Write the full content of your post here..."
+                            value={newBlogContent}
+                            onChange={(e) => setNewBlogContent(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 h-44 resize-y font-sans leading-relaxed"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2 text-xs font-semibold shadow cursor-pointer transition-all mt-1"
+                        >
+                          Publish Post
+                        </button>
+                      </form>
+
+                      {/* Existing Blogs List */}
+                      <div className="lg:col-span-5 flex flex-col gap-3">
+                        <h3 className="font-semibold text-white text-xs uppercase tracking-wider text-slate-400">Current Blog Posts</h3>
+                        
+                        {blogs.length === 0 ? (
+                          <div className="text-center py-6 text-xs text-slate-500">No blogs published yet.</div>
+                        ) : (
+                          <div className="flex flex-col gap-2 max-h-[450px] overflow-y-auto custom-scrollbar">
+                            {blogs.map((b) => (
+                              <div key={b._id} className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+                                <div className="overflow-hidden min-w-0">
+                                  <h4 className="font-semibold text-white text-xs truncate">{b.title}</h4>
+                                  <span className="text-[9px] text-slate-500 font-mono">slug: {b.slug}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBlog(b._id)}
+                                  className="text-rose-400 hover:text-rose-300 text-xs p-1 cursor-pointer hover:bg-rose-500/10 rounded flex-shrink-0"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Manage Domains Sub-tab */}
+                  {adminTab === "domains" && (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      {/* Add Domain Form */}
+                      <form onSubmit={handleCreateDomain} className="lg:col-span-5 bg-slate-900/40 border border-slate-800 p-4 rounded-xl flex flex-col gap-3">
+                        <h3 className="font-semibold text-white text-xs uppercase tracking-wider text-indigo-400">Add New Domain Routing</h3>
+                        <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                          Add domains that are already configured with catch-all routing in your Cloudflare account to forward emails here.
+                        </p>
+                        
+                        <div className="flex flex-col gap-1 mt-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Domain Name:</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. securemail.com"
+                            value={newDomainName}
+                            onChange={(e) => setNewDomainName(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg py-2 text-xs font-semibold shadow cursor-pointer transition-all mt-1"
+                        >
+                          Register Domain
+                        </button>
+                      </form>
+
+                      {/* Domains List */}
+                      <div className="lg:col-span-7 flex flex-col gap-3">
+                        <h3 className="font-semibold text-white text-xs uppercase tracking-wider text-slate-400">Active Domains List</h3>
+                        
+                        {domains.length === 0 ? (
+                          <div className="text-center py-6 text-xs text-slate-500">No domains added.</div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                            {domains.map((dom) => (
+                              <div key={dom._id || dom.domain} className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <Globe className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                  <span className="font-mono text-xs text-white truncate">@{dom.domain}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDomain(dom.domain)}
+                                  className="text-rose-400 hover:text-rose-300 text-xs p-1 cursor-pointer hover:bg-rose-500/10 rounded flex-shrink-0"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. Manage Ads Sub-tab */}
+                  {adminTab === "ads" && (
+                    <div className="flex flex-col gap-4">
+                      <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl">
+                        <h3 className="font-semibold text-white text-xs uppercase tracking-wider text-indigo-400 mb-2">Advertisements Slot Configuration</h3>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-sans">
+                          Control high-exposure banners and skyscraper containers. Turn them off instantly or paste your AdSense HTML responsive codes to optimize monetization formats!
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-4">
+                        {[
+                          { slot: "top_leaderboard", title: "Header Horizontal Leaderboard (728x90 / 320x50 Mobile)" },
+                          { slot: "left_skyscraper", title: "Left Sidebar Skyscraper High-CTR Slot (160x600)" },
+                          { slot: "right_skyscraper", title: "Right Sidebar Skyscraper High-CTR Slot (160x600)" },
+                          { slot: "sidebar_left", title: "Middle Sidebar Left Square Spot (300x250)" },
+                          { slot: "sidebar_right", title: "Middle Responsive Horizontal Grid Banner" }
+                        ].map((spot) => {
+                          const matchingAd = ads.find(a => a.slot === spot.slot) || { isActive: false, codeOrText: "" };
+                          return (
+                            <div key={spot.slot} className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex flex-col gap-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 border-b border-slate-800">
+                                <div className="font-semibold text-xs text-white flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                  <span>{spot.title}</span>
+                                  <span className="text-[9px] text-slate-500 font-mono">({spot.slot})</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase">Status:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveAd(spot.slot, !matchingAd.isActive, matchingAd.codeOrText)}
+                                    className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                                      matchingAd.isActive 
+                                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20" 
+                                        : "bg-slate-800 text-slate-500 border border-slate-700 hover:text-white"
+                                    }`}
+                                  >
+                                    {matchingAd.isActive ? "● Active / Visible" : "○ Disabled"}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase">Ad Code / Alternate text:</label>
+                                <textarea
+                                  placeholder="Paste Google AdSense code or placeholder description..."
+                                  defaultValue={matchingAd.codeOrText}
+                                  onBlur={(e) => {
+                                    if (e.target.value !== matchingAd.codeOrText) {
+                                      handleSaveAd(spot.slot, matchingAd.isActive, e.target.value);
+                                    }
+                                  }}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 font-mono h-20 resize-y"
+                                />
+                                <span className="text-[9px] text-slate-500 italic">💡 Saving triggers automatically when the textarea loses focus.</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
       </main>
 
       {/* RIGHT SKYSCRAPER AD ZONE (Red High-CTR Ad Placement) */}
-      <aside className="hidden xl:flex flex-col gap-4 w-[160px] flex-shrink-0 sticky top-24" id="right-skyscraper-ad">
-        <div className="bg-red-600/10 rounded-2xl border border-red-500/40 p-4 flex flex-col items-center justify-center min-h-[600px] relative overflow-hidden shadow-lg shadow-red-950/10">
-          <span className="absolute top-2 left-2 text-[8px] font-bold tracking-widest text-red-400 uppercase">Sponsored Ad</span>
-          <div className="w-full h-[560px] flex flex-col items-center justify-center text-xs text-red-400 border border-dashed border-red-500/25 rounded-lg bg-red-950/40 p-2 text-center gap-4">
-            <span className="font-mono text-[10px] leading-relaxed">
-              [Google AdSense]<br/>
-              <strong className="text-red-400 font-bold uppercase tracking-wider text-[11px]">Wide Skyscraper<br/>(160x600)</strong><br/>
-              High Conversion Zone
-            </span>
-            <div className="w-8 h-8 rounded-full border border-red-500/30 flex items-center justify-center text-red-400 text-xs font-bold animate-pulse">Ad</div>
-          </div>
-        </div>
-      </aside>
+      {(() => {
+        const rightAd = ads.find(a => a.slot === "right_skyscraper");
+        if (rightAd && !rightAd.isActive) return null;
+        return (
+          <aside className="hidden xl:flex flex-col gap-4 w-[160px] flex-shrink-0 sticky top-24" id="right-skyscraper-ad">
+            <div className="bg-red-600/10 rounded-2xl border border-red-500/40 p-4 flex flex-col items-center justify-center min-h-[600px] relative overflow-hidden shadow-lg shadow-red-950/10">
+              <span className="absolute top-2 left-2 text-[8px] font-bold tracking-widest text-red-400 uppercase">Sponsored Ad</span>
+              <div className="w-full h-[560px] flex flex-col items-center justify-center text-xs text-red-400 border border-dashed border-red-500/25 rounded-lg bg-red-950/40 p-2 text-center gap-4">
+                <span className="font-mono text-[10px] leading-relaxed">
+                  {rightAd?.codeOrText || "[Google AdSense - Wide Skyscraper (160x600)]"}
+                </span>
+                <div className="w-8 h-8 rounded-full border border-red-500/30 flex items-center justify-center text-red-400 text-xs font-bold animate-pulse">Ad</div>
+              </div>
+            </div>
+          </aside>
+        );
+      })()}
 
     </div>
 
